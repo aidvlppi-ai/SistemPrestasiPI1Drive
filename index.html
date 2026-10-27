@@ -1,0 +1,1888 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pengesanan Status Kerja Jabatan</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar {
+            width: 7px;
+            height: 7px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.85);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 min-h-screen text-slate-100 antialiased flex flex-col justify-between selection:bg-blue-600 selection:text-white">
+
+    <!-- NOTIFIKASI TOAST -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform transition-all duration-300 translate-y-[-150%] opacity-0 bg-slate-900/95 border border-slate-700/80 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 pointer-events-none backdrop-blur-md">
+        <i id="toast-icon" class="fa-solid fa-circle-info text-blue-400"></i>
+        <span id="toast-message" class="text-xs sm:text-sm font-medium">Notifikasi Sistem</span>
+    </div>
+
+    <!-- SKRIN KUNCI LOG MASUK (KATA LALUAN SHA-256) -->
+    <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md">
+        <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-blue-950/50 space-y-6 relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="text-center space-y-2 relative">
+                <div class="inline-flex w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-700 to-indigo-600 items-center justify-center text-white text-2xl shadow-lg shadow-blue-700/30 mb-2">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Portal Pengisian Prestasi Pusat Islam</h1>
+                <p class="text-xs text-slate-400">Sila masukkan kata laluan keselamatan untuk mengakses sistem.</p>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4 relative">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                        <span><i class="fa-solid fa-key text-blue-400 mr-1.5"></i> Kata Laluan Akses</span>
+                        <span class="text-[10px] text-slate-500 font-mono">Pusat Islam</span>
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="auth-password-input" required autocomplete="current-password" placeholder="Masukkan kata laluan..."
+                            class="w-full text-sm px-4 py-3 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition pr-10">
+                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 transition" title="Papar/Sembunyi Kata Laluan">
+                            <i id="auth-eye-icon" class="fa-regular fa-eye text-sm"></i>
+                        </button>
+                    </div>
+                    <p id="auth-error-msg" class="text-rose-400 text-xs mt-1.5 hidden flex items-center gap-1.5 font-medium">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Kata laluan salah. Sila cuba lagi.</span>
+                    </p>
+                </div>
+
+                <button type="submit" id="btn-auth-submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 active:scale-[0.99]">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <span>Log Masuk Sistem</span>
+                </button>
+            </form>
+
+            <div class="pt-4 border-t border-slate-800 text-center relative">
+                <span class="text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-lock text-slate-400"></i> Hubungi Admin untuk Password
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP WRAPPER -->
+    <div id="main-app" class="min-h-screen flex flex-col hidden">
+        <!-- HEADER UTAMA -->
+        <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-md shadow-black/20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-lg shadow-blue-600/20">
+                        <i class="fa-solid fa-list-check text-lg"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-base sm:text-lg text-white leading-tight">Pelaksanaan Tugas dan Prestasi Kerja Pusat Islam</h2>
+                        <p class="text-xs text-slate-400 flex items-center gap-1.5">
+                            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Sistem Secara Auto-Refresh &bull; Mod Gelap
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2.5">
+                    <button onclick="exportToCsv()" class="text-xs px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl font-medium transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                        <span class="hidden sm:inline">Eksport</span> CSV
+                    </button>
+                    <button onclick="handleLogout()" class="text-xs px-3 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-900/60 rounded-xl font-medium transition flex items-center gap-1.5" title="Kunci Skrin & Log Keluar">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span class="hidden sm:inline">Kunci / </span>Keluar
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- KANDUNGAN UTAMA -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6 flex-grow">
+
+            <!-- BAR PENETAPAN GOOGLE SHEET CLOUD -->
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-950/60 border border-blue-800/50 text-blue-400 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-cloud text-base"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Sambungan ke Simpanan Secara Cloud</h3>
+                            <p class="text-xs text-slate-400">Creator dan Maklumat dibawah seliaan En. W. Noraizuddin</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="fetchSheetData()" id="btn-sync-live" class="w-full sm:w-auto text-xs px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl shadow-lg shadow-blue-600/20 transition flex items-center justify-center gap-2 whitespace-nowrap">
+                            <i class="fa-solid fa-rotate" id="sync-icon"></i>
+                            <span id="sync-text">Sync Live</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRID: BORANG & REKOD -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- BAHAGIAN KIRI: FILTER & BORANG KERJA (5 COLS) -->
+                <div class="lg:col-span-5 space-y-6">
+
+                    <!-- 1. FILTER UNIT (AUTO-LOAD) -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-filter text-blue-400"></i> Pilihan Unit Jabatan
+                            </span>
+                            <span id="unit-source-badge" class="text-[11px] bg-blue-950 text-blue-300 border border-blue-800 px-2.5 py-0.5 rounded-full font-medium">Langkah 1 (Pratetap)</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Pilih Unit:</label>
+                                <select id="unit-select" onchange="handleLoadUnitData(true)" class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+                                    <option value="" disabled selected>-- Sila Pilih Unit --</option>
+                                    <option value="Unit Pentadbiran & Sumber Manusia">Unit Pentadbiran & Sumber Manusia</option>
+                                    <option value="Unit Kewangan & Akaun">Unit Kewangan & Akaun</option>
+                                    <option value="Unit Teknologi Maklumat & Digital">Unit Teknologi Maklumat & Digital</option>
+                                    <option value="Unit Perancangan Strategik & Operasi">Unit Perancangan Strategik & Operasi</option>
+                                    <option value="Unit Komunikasi Korporat & Perhubungan">Unit Komunikasi Korporat & Perhubungan</option>
+                                    <option value="Unit Integriti & Pematuhan">Unit Integriti & Pematuhan</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. BORANG PENGISIAN RUANG -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-pen-to-square text-blue-400"></i> Pengisian Maklumat Kerja
+                            </span>
+                            <span class="text-[11px] bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full font-medium">Langkah 2</span>
+                        </div>
+
+                        <form id="work-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                            <!-- Skop Kerja -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    <i class="fa-solid fa-layer-group text-blue-400 mr-1"></i> Skop Kerja
+                                </label>
+                                <select id="skop-select" required onchange="handleSkopChange()"
+                                    class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+                                    <option value="" disabled selected>-- Sila Pilih Unit Dahulu --</option>
+                                </select>
+                            </div>
+
+                            <!-- Nama Kerja -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                    <i class="fa-solid fa-briefcase text-blue-400 mr-1"></i> Nama / Deskripsi Kerja
+                                </label>
+                                <select id="kerja-select" required onchange="handleKerjaChange()"
+                                    class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+                                    <option value="" disabled selected>-- Sila Pilih Skop Kerja Dahulu --</option>
+                                </select>
+                            </div>
+
+                            <!-- Pilihan Tarikh -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                        <i class="fa-regular fa-calendar-plus text-slate-400 mr-1"></i> Tarikh Mula
+                                    </label>
+                                    <input type="date" id="date-start" required onchange="calculateDueDate()"
+                                        class="w-full text-sm px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                                        <i class="fa-regular fa-calendar-check text-slate-400 mr-1"></i> Tarikh Tamat
+                                    </label>
+                                    <input type="date" id="date-end" required onchange="calculateDueDate()"
+                                        class="w-full text-sm px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <!-- Tempoh Due Date Display -->
+                            <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+                                <span class="text-slate-400 font-medium">Baki / Tempoh Masa:</span>
+                                <span id="due-date-badge" class="font-bold text-slate-300">Sila pilih tarikh</span>
+                            </div>
+
+                            <!-- PEMILIHAN / INDIKATOR JENIS KEMAJUAN -->
+                            <div class="pt-2 border-t border-slate-800 flex items-center justify-between">
+                                <span class="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-sliders text-blue-400"></i> Kaedah Pengiraan:
+                                </span>
+                                <button type="button" id="btn-toggle-meeting-mode" onclick="toggleProgressModeManual()" 
+                                    class="text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center gap-1">
+                                    <i class="fa-solid fa-arrows-rotate text-blue-400"></i>
+                                    <span id="mode-toggle-label">Standard (3 Fasa)</span>
+                                </button>
+                            </div>
+
+                            <!-- 1. KOMPONEN KEMAJUAN KHAS: BILANGAN MESYUARAT -->
+                            <div id="section-progress-meeting" class="space-y-3 p-3.5 bg-blue-950/40 border border-blue-900/60 rounded-xl hidden transition-all">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+                                            <label id="meeting-title-label" class="text-xs font-bold text-blue-200">Kemajuan Mesyuarat (Sasaran 7 Kali):</label>
+                                        </div>
+                                        <p id="meeting-subtext-label" class="text-[11px] text-blue-300/80 mt-0.5">Setiap 1 sesi mesyuarat = ~14.3% (7 kali = 100%)</p>
+                                    </div>
+                                    <span id="meeting-percentage-display" class="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-600 text-white shadow-xs">
+                                        0 / 7 (0%)
+                                    </span>
+                                </div>
+
+                                <!-- Bar visual progress mesyuarat -->
+                                <div class="w-full bg-slate-950 rounded-full h-2 border border-blue-900/50 overflow-hidden">
+                                    <div id="meeting-progress-bar" class="bg-blue-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+
+                                <!-- Kotak Semak Sesi Mesyuarat -->
+                                <div id="meeting-buttons-container" class="grid grid-cols-7 gap-1.5 pt-1">
+                                    <!-- Dijana secara dinamik oleh JavaScript -->
+                                </div>
+
+                                <!-- Kawalan Cepat + / - -->
+                                <div class="flex items-center justify-between text-xs pt-1">
+                                    <span class="text-blue-300 font-medium" id="meeting-count-desc">Belum ada mesyuarat dijalankan.</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button" onclick="adjustMeetingCount(-1)" class="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-200 font-bold flex items-center justify-center transition active:scale-95" title="Kurang 1 Mesyuarat">-</button>
+                                        <button type="button" onclick="adjustMeetingCount(1)" class="w-7 h-7 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center transition active:scale-95 shadow-sm" title="Tambah 1 Mesyuarat">+</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. MULTIPLE TICK PERATUSAN STANDARD (40% + 20% + 40%) -->
+                            <div id="section-progress-standard" class="space-y-2 pt-2">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-semibold text-slate-300">Komponen Kemajuan Standard:</label>
+                                    <span id="percentage-display" class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">0%</span>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <!-- Tick 1: 40% -->
+                                    <label class="flex items-center p-2.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-900 cursor-pointer transition select-none">
+                                        <input type="checkbox" id="tick-paperwork" value="40" onchange="calculatePercentage()"
+                                            class="w-4 h-4 text-blue-600 rounded border-slate-700 bg-slate-900 focus:ring-blue-500">
+                                        <div class="ml-3 flex-grow flex justify-between items-center text-xs">
+                                            <span class="font-medium text-slate-300">Kertas Kerja / Mesyuarat / Usul</span>
+                                            <span class="bg-blue-950 text-blue-300 border border-blue-800/80 font-semibold px-2 py-0.5 rounded-md">40%</span>
+                                        </div>
+                                    </label>
+
+                                    <!-- Tick 2: 20% -->
+                                    <label class="flex items-center p-2.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-900 cursor-pointer transition select-none">
+                                        <input type="checkbox" id="tick-broadcast" value="20" onchange="calculatePercentage()"
+                                            class="w-4 h-4 text-blue-600 rounded border-slate-700 bg-slate-900 focus:ring-blue-500">
+                                        <div class="ml-3 flex-grow flex justify-between items-center text-xs">
+                                            <span class="font-medium text-slate-300">Hebahan / Publisiti</span>
+                                            <span class="bg-amber-950 text-amber-300 border border-amber-800/80 font-semibold px-2 py-0.5 rounded-md">20%</span>
+                                        </div>
+                                    </label>
+
+                                    <!-- Tick 3: 40% -->
+                                    <label class="flex items-center p-2.5 rounded-xl border border-slate-800 bg-slate-950 hover:bg-slate-900 cursor-pointer transition select-none">
+                                        <input type="checkbox" id="tick-execution" value="40" onchange="calculatePercentage()"
+                                            class="w-4 h-4 text-blue-600 rounded border-slate-700 bg-slate-900 focus:ring-blue-500">
+                                        <div class="ml-3 flex-grow flex justify-between items-center text-xs">
+                                            <span class="font-medium text-slate-300">Pelaksanaan Program / Tugasan</span>
+                                            <span class="bg-emerald-950 text-emerald-300 border border-emerald-800/80 font-semibold px-2 py-0.5 rounded-md">40%</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- RUANG STATUS (AUTO GENERATED) -->
+                            <div class="pt-2">
+                                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Status Tugasan (Automatik)</label>
+                                <div id="status-container" class="flex items-center gap-2.5 p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                                    <span id="status-icon" class="w-3 h-3 rounded-full bg-slate-600"></span>
+                                    <span id="status-text" class="text-xs font-bold text-slate-400">Belum Mula (0%)</span>
+                                </div>
+                            </div>
+
+                            <!-- RUANG MUAT NAIK FAIL & PAUTAN ONEDRIVE -->
+                            <div class="pt-2 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-xs font-semibold text-slate-300">
+                                        <i class="fa-solid fa-cloud-arrow-up text-blue-400 mr-1"></i> Lampiran Fail / Pautan OneDrive
+                                    </label>
+                                    <a href="https://raudahusim-my.sharepoint.com/:f:/g/personal/wan_noraizuddin_usim_edu_my/IgCZJVW5zg6NRa_LLFloCJvDAa_X8nY9pPf0gXUDpdYQcQc?e=pWgBT8" 
+                                       target="_blank" 
+                                       rel="noopener noreferrer"
+                                       class="text-[11px] font-medium text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1">
+                                        <i class="fa-solid fa-folder-open"></i> Buka Folder OneDrive
+                                    </a>
+                                </div>
+
+                                <!-- PANDUAN RINGKAS MUAT NAIK -->
+                                <div class="p-2.5 bg-sky-950/40 border border-sky-800/60 rounded-xl text-[11px] text-sky-200 leading-relaxed space-y-1">
+                                    <div class="font-bold flex items-center gap-1.5 text-sky-300">
+                                        <i class="fa-brands fa-microsoft"></i> Cara Muat Naik ke OneDrive USIM:
+                                    </div>
+                                    <ol class="list-decimal list-inside space-y-0.5 text-slate-300 text-[10.5px] pl-1">
+                                        <li>Tekan butang <b class="text-sky-400">"Muat Naik ke OneDrive"</b> di bawah untuk membuka folder SharePoint USIM.</li>
+                                        <li><i>Drag & drop</i> fail anda ke dalam folder tersebut di tab baharu.</li>
+                                        <li>Salin pautan fail dari OneDrive & tampal pada petak URL di bawah (Pilihan).</li>
+                                    </ol>
+                                </div>
+
+                                <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+                                    <!-- Butang Muat Naik ke OneDrive (Menggantikan Choose File) -->
+                                    <div>
+                                        <label class="block text-[10.5px] font-semibold text-slate-400 mb-1.5">1. Buka Storan OneDrive & Muat Naik Fail:</label>
+                                        <button type="button" onclick="openOneDriveFolder()" class="w-full bg-sky-600 hover:bg-sky-500 text-white text-xs px-4 py-2.5 rounded-xl font-medium transition flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-[0.99]">
+                                            <i class="fa-solid fa-up-right-from-square text-xs"></i>
+                                            <span>Muat Naik ke OneDrive</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Pautan Direct URL ke OneDrive -->
+                                    <div>
+                                        <label class="block text-[10.5px] font-semibold text-slate-400 mb-1">2. Pautan Direktori / Fail OneDrive (URL):</label>
+                                        <div class="relative">
+                                            <input type="url" id="onedrive-url-input" placeholder="https://raudahusim-my.sharepoint.com/..."
+                                                class="w-full text-xs px-3 py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition">
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                                        <span><i class="fa-brands fa-microsoft text-sky-400 mr-1"></i> Storan SharePoint USIM</span>
+                                        <span class="text-[10px] text-slate-500">Folder Seliaan En. W. Noraizuddin</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BUTANG SIMPAN -->
+                            <div class="pt-2">
+                                <button type="submit" id="btn-save" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2 active:scale-[0.99]">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                                    <span id="btn-save-text">Simpan & Hantar ke Cloud Google Sheet</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- BAHAGIAN KANAN: PAPARAN REKOD (7 COLS) -->
+                <div class="lg:col-span-7 space-y-4">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+                            <div>
+                                <h3 class="font-bold text-white text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
+                                    Rekod Kerja Yang Diisi
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Senarai tugasan yang disimpan.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span id="record-count-badge" class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1 rounded-full font-medium">
+                                    0 Rekod
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- BAR CARIAN MASA NYATA & TAPISAN STATUS -->
+                        <div class="flex flex-col sm:flex-row items-center gap-2.5">
+                            <div class="relative w-full">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                                </span>
+                                <input type="text" id="table-search-input" onkeyup="handleSearchInput(event)" placeholder="Cari nama kerja, skop atau status..."
+                                    class="w-full text-xs pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                            </div>
+                            <button onclick="renderRecordsTable(true)" class="w-full sm:w-auto text-xs px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition whitespace-nowrap flex items-center justify-center gap-1.5" title="Papar semua rekod tanpa tapisan dropdown">
+                                <i class="fa-solid fa-arrows-rotate text-blue-400"></i>
+                                <span>Semua</span>
+                            </button>
+                        </div>
+
+                        <!-- BAR INDIKATOR AUTO-FILTER -->
+                        <div id="filter-status-bar" class="p-2.5 bg-slate-950 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2 text-slate-400 truncate">
+                                <i class="fa-solid fa-filter text-blue-400 text-xs"></i>
+                                <span class="font-medium text-slate-500">Tapisan:</span>
+                                <span id="filter-active-label" class="font-semibold text-slate-200 truncate">Semua Rekod</span>
+                            </div>
+                            <button id="btn-reset-table-filter" onclick="resetTableFilter()" class="hidden text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1 whitespace-nowrap">
+                                <i class="fa-solid fa-rotate-left"></i> Set Semula
+                            </button>
+                        </div>
+
+                        <!-- SENARAI JADUAL PAPARAN -->
+                        <div class="overflow-x-auto rounded-xl border border-slate-800/80">
+                            <table class="w-full text-left text-xs table-fixed min-w-[600px]">
+                                <thead>
+                                    <tr class="text-slate-400 uppercase tracking-wider border-b border-slate-800 bg-slate-950">
+                                        <th class="py-3 px-3.5 font-semibold w-[36%]">Kerja & Unit</th>
+                                        <th class="py-3 px-2 font-semibold w-[20%]">Tarikh</th>
+                                        <th class="py-3 px-2 font-semibold w-[12%] text-center">Tempoh</th>
+                                        <th class="py-3 px-2 font-semibold w-[10%] text-center">Prestasi</th>
+                                        <th class="py-3 px-3 font-semibold w-[10%] text-center">Status</th>
+                                        <th class="py-3 px-2 font-semibold w-[12%] text-right">Fail/Link</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="session-records-body" class="divide-y divide-slate-800 text-slate-300 bg-slate-900/60">
+                                    <tr id="empty-row">
+                                        <td colspan="6" class="text-center py-12 text-slate-500">
+                                            <i class="fa-regular fa-folder-open text-3xl mb-2 block"></i>
+                                            Belum ada rekod kerja yang diisi. Sila lengkapkan borang di sebelah kiri.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+            Sistem Pengesanan Status Kerja Jabatan &bull; Sambungan Cloud Google Sheets Terkawal &bull; Hak Cipta Terpelihara
+        </footer>
+    </div>
+
+    <!-- LOGIK JAVASCRIPT SISTEM -->
+    <script>
+        // Kredensial Kata Laluan Akses SHA-256 (Lalai: "admin123")
+        const PASSWORD_SHA256_HASH = "f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae";
+        const SESSION_AUTH_KEY = "status_kerja_auth_token";
+        const LOCAL_STORAGE_KEY = "status_kerja_records_cache";
+
+        // Bank Data Skop & Cadangan Kerja bagi setiap Unit
+        const UNIT_DATA_PRESETS = {
+            "Unit Pentadbiran & Sumber Manusia": {
+                "Pengurusan Sumber Manusia & Latihan": [
+                    "Penilaian Prestasi Tahunan (LNPT / e-Prestasi)",
+                    "Pengurusan Fail Perjawatan & Kenaikan Pangkat",
+                    "Penyelarasan Kursus Latihan Dalaman Staf"
+                ],
+                "Pentadbiran Am, Logistik & Aset Pejabat": [
+                    "Verifikasi Stok & Inventori Bekalan Pejabat",
+                    "Penyelenggaraan Kenderaan Rasmi & Bangunan Jabatan"
+                ],
+                "Pengurusan Rekod, Fail & Surat-Menyurat": [
+                    "Pengurusan Fail Arkib & Pelupusan Dokumen Rasmi",
+                    "Pendaftaran & Pengagihan Surat Rasmi Keluar/Masuk"
+                ],
+                "Kebajikan Staf, Cuti & Perjawatan": [
+                    "Semakan Baki Kelayakan Cuti Staf Tahunan",
+                    "Penyelarasan Bantuan Kebajikan & Khairat Warga Jabatan"
+                ],
+                "Keselamatan Pejabat & Fasiliti Bangunan": [
+                    "Pengurusan Pembaharuan Kad Akses & Keselamatan",
+                    "Latihan Kawad Kebakaran & Pemeriksaan Alat Pemadam Api"
+                ]
+            },
+            "Unit Kewangan & Akaun": {
+                "Penyelarasan Bajet & Perancangan Belanjawan": [
+                    "Penyediaan Anggaran Belanja Mengurus (ABM) Tahunan",
+                    "Penyelarasan Mesyuarat Jawatankuasa Pengurusan Kewangan (JPKA)"
+                ],
+                "Pengurusan Bayaran, Pesanan Kerajaan & Invois": [
+                    "Pemprosesan Baucar Bayaran & Tuntutan Pembekal",
+                    "Semakan Laporan Tunggakan Bil & Pembayaran Pukal"
+                ],
+                "Audit Dalaman & Kawalan Kewangan": [
+                    "Penyediaan Penyata Penyesuaian Bank Bulanan",
+                    "Pengauditan Resit & Perbelanjaan Panjar Wang Runcit"
+                ],
+                "Pengurusan Aset Alih & Pelupusan": [
+                    "Pemeriksaan Fizikal Harta Modal & Inventori (KEW.PA)",
+                    "Penyediaan Kertas Kerja Lembaga Pemeriksa Pelupusan Aset"
+                ],
+                "Pungutan Hasil & Akaun Amanah": [
+                    "Penyediaan Penyata Pungutan Hasil Mingguan",
+                    "Penyelarasan Rekod Akaun Amanah Jabatan"
+                ]
+            },
+            "Unit Teknologi Maklumat & Digital": {
+                "Penyelenggaraan Infrastruktur Rangkaian & Server": [
+                    "Pengukuhan Sandaran Server & Ujian Pemulihan Bencana",
+                    "Penyelenggaraan Rutin Rangkaian LAN, Wi-Fi & Firewall"
+                ],
+                "Pembangunan & Penyelenggaraan Sistem Aplikasi": [
+                    "Pembangunan Modul Tambahan Sistem Dalaman",
+                    "Ujian Penerimaan Pengguna (UAT) Aplikasi Baharu"
+                ],
+                "Penyelarasan & Mesyuarat Teknikal ICT": [
+                    "Mesyuarat JKKITM (Jawatankuasa Pemandu ICT)",
+                    "Mesyuarat Penyelarasan Pasukan Teknikal IT"
+                ],
+                "Keselamatan Siber & Pengurusan Sandaran (Backup)": [
+                    "Audit Pematuhan Keselamatan Maklumat (ICT Security Audit)",
+                    "Kemaskini Lesen Perisian & Patch Keselamatan OS"
+                ],
+                "Sokongan Teknikal & Meja Bantuan (Helpdesk)": [
+                    "Penyediaan Laporan Helpdesk & Pembaikan Komputer Berkala",
+                    "Konfigurasi Stesen Kerja Staf Baharu"
+                ],
+                "Transformasi Digital & Integrasi Data": [
+                    "Penyediaan Integrasi API & Webhook Jabatan",
+                    "Bengkel Penggunaan Portal Digital Warga Pejabat"
+                ]
+            },
+            "Unit Perancangan Strategik & Operasi": {
+                "Pemantauan Petunjuk Prestasi Utama (KPI) Jabatan": [
+                    "Penyelarasan Laporan Suku Tahun KPI Jabatan & Cawangan",
+                    "Penyediaan Laporan Mingguan Status Projek Berimpak Tinggi"
+                ],
+                "Pengurusan Risiko & Pelan Tindakan Operasi": [
+                    "Kemaskini Daftar Profil Risiko Jabatan",
+                    "Penilaian Impak Keberkesanan Dasar & Operasi Semasa"
+                ],
+                "Penyelarasan Mesyuarat Pengurusan Tertinggi": [
+                    "Penyelarasan Sesi Pemukiman / Retreat Pengurusan Tertinggi",
+                    "Penyediaan Minit Tindakan Mesyuarat Pengurusan"
+                ],
+                "Penyelidikan Operasi & Analisis Data Strategik": [
+                    "Penyediaan Buku Pelan Strategik Organisasi",
+                    "Analisis Data Prestasi Operasi & Kepuasan Pelanggan"
+                ],
+                "Pemantauan Projek Pembangunan & Impak": [
+                    "Lawatan Tapak & Verifikasi Fizikal Projek Pembangunan",
+                    "Penyediaan Laporan Kemajuan Projek RMK"
+                ]
+            },
+            "Unit Komunikasi Korporat & Perhubungan": {
+                "Pengurusan Media Sosial & Kandungan Digital": [
+                    "Penerbitan Buletin Suku Tahun & Infografik Rasmi",
+                    "Penyediaan Montaj & Video Korporat Sambutan Tahunan"
+                ],
+                "Perhubungan Media & Kenyataan Akhbar": [
+                    "Hebahan Media & Peliputan Acara Utama Jabatan",
+                    "Pengurusan Sidang Media & Sesi Bersama Wartawan",
+                    "Pemantauan Liputan Berita & Analisis Sentimen Media"
+                ],
+                "Pengurusan Protokol Majlis & Lawatan Rasmi": [
+                    "Penyelarasan Protokol Lawatan Rasmi Delegasi Luar",
+                    "Pengurusan Pengacaraan & Atur Cara Majlis Rasmi"
+                ],
+                "Penerbitan Korporat & Buletin Jabatan": [
+                    "Penyuntingan & Reka Letak Laporan Tahunan Jabatan",
+                    "Penerbitan E-Katalog Perkhidmatan Jabatan"
+                ],
+                "Pengurusan Aduan Awam & Pelanggan": [
+                    "Penyelarasan Hari Bersama Pelanggan & Kaunter Aduan",
+                    "Maklum Balas Terhadap Maklum Balas Pelanggan (SISPAA)"
+                ]
+            },
+            "Unit Integriti & Pematuhan": {
+                "Tadbir Urus & Pengukuhan Integriti": [
+                    "Audit Pematuhan Prosedur Fail Meja & Semakan SOP",
+                    "Penyediaan Pelan Antirasuah Organisasi (OACP)"
+                ],
+                "Pematuhan Standard Prosedur Operasi (SOP) & Arahan Perkhidmatan": [
+                    "Pemeriksaan Mengejut Kaunter & Kawalan Prosedur Kerja",
+                    "Penyelarasan Kajian Semula Manual Prosedur Kerja (MPK)"
+                ],
+                "Pengurusan Salahlaku & Saluran Aduan Whistleblowing": [
+                    "Siasatan Awal Maklum Balas / Aduan Integriti",
+                    "Pengurusan Rekod Rahsia Tatatertib & Salahlaku"
+                ],
+                "Pendidikan, Kesedaran & Nilai Murni": [
+                    "Pelaksanaan Program Wacana Kesedaran Anti-Rasuah",
+                    "Bengkel Pengukuhan Etika & Nilai Murni Warga Jabatan"
+                ],
+                "Penilaian Risiko Rasuah & Ketirisan": [
+                    "Penilaian Kerentanan Rasuah Dalam Perolehan Jabatan",
+                    "Penyediaan Laporan Risiko Integriti Tahunan"
+                ]
+            }
+        };
+
+        // State Aplikasi
+        let currentSessionRecords = [];
+        const webhookUrl = "https://script.google.com/macros/s/AKfycbwYsmnqshbpqQsFKqwJHViwOSdc6XeTgoFglyM2lRmLYN4UC31H9YREWkmPbIrS8YiS/exec";
+        const ONEDRIVE_FOLDER_URL = "https://raudahusim-my.sharepoint.com/:f:/g/personal/wan_noraizuddin_usim_edu_my/IgCZJVW5zg6NRa_LLFloCJvDAa_X8nY9pPf0gXUDpdYQcQc?e=pWgBT8";
+        let cloudUnitMapping = {};
+        let searchQuery = "";
+        let isMeetingMode = false;
+        let currentMeetingTarget = 7; 
+        let currentMeetingCount = 0;
+
+        // FUNGSI KESELAMATAN SHA-256
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function openOneDriveFolder() {
+            window.open(ONEDRIVE_FOLDER_URL, '_blank');
+            showToast("Folder OneDrive dibuka di tab baharu. Sila muat naik fail anda di sana.", "info");
+        }
+
+        function initAuth() {
+            const isAuth = sessionStorage.getItem(SESSION_AUTH_KEY);
+            const authScreen = document.getElementById('auth-screen');
+            const mainApp = document.getElementById('main-app');
+
+            if (isAuth === "authenticated") {
+                if (authScreen) authScreen.classList.add('hidden');
+                if (mainApp) mainApp.classList.remove('hidden');
+            } else {
+                if (authScreen) authScreen.classList.remove('hidden');
+                if (mainApp) mainApp.classList.add('hidden');
+                setTimeout(() => {
+                    document.getElementById('auth-password-input')?.focus();
+                }, 100);
+            }
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const passwordInput = document.getElementById('auth-password-input');
+            const errorMsg = document.getElementById('auth-error-msg');
+            const val = passwordInput.value;
+
+            if (!val) return;
+
+            const hashed = await sha256(val);
+            if (hashed === PASSWORD_SHA256_HASH) {
+                sessionStorage.setItem(SESSION_AUTH_KEY, "authenticated");
+                errorMsg.classList.add('hidden');
+                passwordInput.value = "";
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                showToast("Selamat datang ke Sistem Pengesanan Status Kerja!", "success");
+            } else {
+                errorMsg.classList.remove('hidden');
+                passwordInput.value = "";
+                passwordInput.focus();
+                showToast("Kata laluan tidak sah!", "error");
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('auth-password-input');
+            const icon = document.getElementById('auth-eye-icon');
+            if (!input || !icon) return;
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-regular fa-eye-slash text-sm text-blue-400';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-regular fa-eye text-sm text-slate-400';
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem(SESSION_AUTH_KEY);
+            initAuth();
+            showToast("Anda telah berjaya log keluar.", "info");
+        }
+
+        function saveLocalRecords() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(currentSessionRecords));
+            } catch (err) {
+                console.warn("Gagal menyimpan ke localStorage:", err);
+            }
+        }
+
+        function loadLocalRecords() {
+            try {
+                const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (data) {
+                    currentSessionRecords = JSON.parse(data);
+                }
+            } catch (err) {
+                console.warn("Gagal memuat dari localStorage:", err);
+                currentSessionRecords = [];
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            if (!toast || !toastMsg) return;
+
+            toastMsg.innerText = message;
+            if (type === 'success') {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-blue-400";
+            }
+
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 3500);
+        }
+
+        function calculateMeetingPercentageVal(count, target = 7) {
+            const maxTarget = target === 4 ? 4 : 7;
+            if (count >= maxTarget) return 100;
+            if (count <= 0) return 0;
+            if (maxTarget === 4) {
+                return Math.round((count / 4) * 100);
+            }
+            return Math.round((count / 7) * 100);
+        }
+
+        function updateMeetingUI() {
+            const display = document.getElementById('meeting-percentage-display');
+            const bar = document.getElementById('meeting-progress-bar');
+            const desc = document.getElementById('meeting-count-desc');
+            const target = currentMeetingTarget || 7;
+
+            const percent = calculateMeetingPercentageVal(currentMeetingCount, target);
+
+            if (display) {
+                display.innerText = `${currentMeetingCount} / ${target} (${percent}%)`;
+                display.className = currentMeetingCount === target 
+                    ? "text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white shadow-xs"
+                    : (currentMeetingCount > 0 
+                        ? "text-xs font-bold px-2.5 py-1 rounded-full bg-blue-600 text-white shadow-xs" 
+                        : "text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700");
+            }
+
+            if (bar) {
+                bar.style.width = `${percent}%`;
+                bar.className = currentMeetingCount === target 
+                    ? "bg-emerald-400 h-full rounded-full transition-all duration-300"
+                    : "bg-blue-500 h-full rounded-full transition-all duration-300";
+            }
+
+            for (let i = 1; i <= target; i++) {
+                const btn = document.getElementById(`btn-meet-${i}`);
+                if (!btn) continue;
+                if (i <= currentMeetingCount) {
+                    btn.className = "meet-step-btn py-2 text-center rounded-lg border border-blue-500 bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition";
+                } else {
+                    btn.className = "meet-step-btn py-2 text-center rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800 text-slate-300 text-xs font-bold transition";
+                }
+            }
+
+            if (desc) {
+                if (currentMeetingCount === 0) {
+                    desc.innerText = "Belum ada mesyuarat dijalankan.";
+                } else if (currentMeetingCount === target) {
+                    desc.innerHTML = `<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check-circle mr-1"></i> Sasaran ${target} kali mesyuarat selesai!</span>`;
+                } else {
+                    const baki = target - currentMeetingCount;
+                    desc.innerHTML = `Telah dijalankan <b>${currentMeetingCount} kali</b> (Baki: ${baki} sesi lagi).`;
+                }
+            }
+        }
+
+        function setMeetingCount(count) {
+            if (count < 0) count = 0;
+            if (count > currentMeetingTarget) count = currentMeetingTarget;
+            currentMeetingCount = count;
+            updateMeetingUI();
+            calculatePercentage();
+        }
+
+        function adjustMeetingCount(delta) {
+            setMeetingCount(currentMeetingCount + delta);
+        }
+
+        function generateMeetingButtons(target) {
+            const container = document.getElementById('meeting-buttons-container');
+            if (!container) return;
+
+            container.className = target === 4 ? "grid grid-cols-4 gap-2 pt-1" : "grid grid-cols-7 gap-1.5 pt-1";
+            let buttonsHtml = "";
+            for (let i = 1; i <= target; i++) {
+                buttonsHtml += `
+                    <button type="button" onclick="setMeetingCount(${i})" id="btn-meet-${i}" 
+                        class="meet-step-btn py-2 text-center rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-800 text-slate-300 text-xs font-bold transition">
+                        ${i}
+                    </button>
+                `;
+            }
+            container.innerHTML = buttonsHtml;
+        }
+
+        function setMeetingMode(active, target = 7) {
+            isMeetingMode = active;
+            currentMeetingTarget = target === 4 ? 4 : 7;
+            if (currentMeetingCount > currentMeetingTarget) {
+                currentMeetingCount = currentMeetingTarget;
+            }
+
+            const secMeeting = document.getElementById('section-progress-meeting');
+            const secStandard = document.getElementById('section-progress-standard');
+            const toggleLabel = document.getElementById('mode-toggle-label');
+            const titleLabel = document.getElementById('meeting-title-label');
+            const subtextLabel = document.getElementById('meeting-subtext-label');
+
+            if (isMeetingMode) {
+                secMeeting?.classList.remove('hidden');
+                secStandard?.classList.add('hidden');
+                if (toggleLabel) {
+                    toggleLabel.innerHTML = currentMeetingTarget === 4
+                        ? `<span class="text-blue-400 font-bold">Mesyuarat JKKITM (4 Kali)</span>`
+                        : `<span class="text-blue-400 font-bold">Mesyuarat (7 Kali)</span>`;
+                }
+                if (titleLabel) {
+                    titleLabel.textContent = currentMeetingTarget === 4
+                        ? "Kemajuan Mesyuarat JKKITM (Sasaran 4 Kali):"
+                        : "Kemajuan Mesyuarat (Sasaran 7 Kali):";
+                }
+                if (subtextLabel) {
+                    subtextLabel.textContent = currentMeetingTarget === 4
+                        ? "Setiap 1 sesi mesyuarat = 25% (4 kali = 100%)"
+                        : "Setiap 1 sesi mesyuarat = ~14.3% (7 kali = 100%)";
+                }
+                generateMeetingButtons(currentMeetingTarget);
+                updateMeetingUI();
+            } else {
+                secMeeting?.classList.add('hidden');
+                secStandard?.classList.remove('hidden');
+                if (toggleLabel) toggleLabel.innerHTML = `<span>Standard (3 Fasa)</span>`;
+            }
+
+            calculatePercentage();
+        }
+
+        function checkIsMeetingText(text) {
+            if (!text) return false;
+            const t = text.toLowerCase();
+            return t.includes("mesyuarat") || t.includes("meeting") || t.includes("jpka") || t.includes("jkkitm");
+        }
+
+        function isJkkitmMeeting(text) {
+            if (!text) return false;
+            const t = text.toLowerCase();
+            return t.includes("jkkitm");
+        }
+
+        function detectAndApplyMeetingMode(kerjaText, skopText) {
+            const combined = `${kerjaText || ''} ${skopText || ''}`;
+            const isMeeting = checkIsMeetingText(combined);
+            const isJkkitm = isJkkitmMeeting(combined);
+            const targetCount = isJkkitm ? 4 : 7;
+            setMeetingMode(isMeeting, targetCount);
+        }
+
+        function toggleProgressModeManual() {
+            if (!isMeetingMode) {
+                const unit = document.getElementById('unit-select')?.value || '';
+                const skop = document.getElementById('skop-select')?.value || '';
+                const kerja = document.getElementById('kerja-select')?.value || '';
+                const isJkkitm = isJkkitmMeeting(`${kerja} ${skop} ${unit}`);
+                setMeetingMode(true, isJkkitm ? 4 : 7);
+                showToast(`Mod kemajuan ditukar kepada: Mesyuarat (${isJkkitm ? 'JKKITM 4 Kali' : '7 Kali'})`, "info");
+            } else {
+                setMeetingMode(false);
+                showToast("Mod kemajuan ditukar kepada: Standard (40/20/40)", "info");
+            }
+        }
+
+        function handleLoadUnitData(isAuto = false) {
+            const select = document.getElementById('unit-select');
+            const selectedUnit = select.value;
+
+            if (!selectedUnit) {
+                if (!isAuto) showToast("Sila pilih unit terlebih dahulu!", "error");
+                renderRecordsTable();
+                return;
+            }
+
+            const skopSelect = document.getElementById('skop-select');
+            const kerjaSelect = document.getElementById('kerja-select');
+
+            kerjaSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Skop Kerja Dahulu --</option>`;
+
+            if (cloudUnitMapping[selectedUnit]) {
+                const skopList = Object.keys(cloudUnitMapping[selectedUnit]);
+                skopSelect.innerHTML = `<option value="" disabled selected>-- Pilih Skop Kerja (${skopList.length} Pilihan) --</option>`;
+                skopList.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    opt.textContent = item;
+                    skopSelect.appendChild(opt);
+                });
+                showToast(`Auto-load: Skop bagi "${selectedUnit}" sedia dipilih!`, "success");
+            } else {
+                const presetUnit = UNIT_DATA_PRESETS[selectedUnit];
+                if (presetUnit) {
+                    const skopList = Object.keys(presetUnit);
+                    skopSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Skop Kerja (${skopList.length} Pilihan) --</option>`;
+                    skopList.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item;
+                        opt.textContent = item;
+                        skopSelect.appendChild(opt);
+                    });
+                    showToast(`Auto-load: Skop bagi "${selectedUnit}" telah dimuatkan.`, "info");
+                }
+            }
+
+            renderRecordsTable();
+        }
+
+        function handleSkopChange() {
+            const unitSelect = document.getElementById('unit-select');
+            const skopSelect = document.getElementById('skop-select');
+            const kerjaSelect = document.getElementById('kerja-select');
+
+            const selectedUnit = unitSelect.value;
+            const selectedSkop = skopSelect.value;
+
+            if (!selectedUnit || !selectedSkop) {
+                renderRecordsTable();
+                return;
+            }
+
+            let kerjaList = [];
+
+            if (cloudUnitMapping[selectedUnit] && cloudUnitMapping[selectedUnit][selectedSkop]) {
+                kerjaList = cloudUnitMapping[selectedUnit][selectedSkop];
+            } else if (UNIT_DATA_PRESETS[selectedUnit] && UNIT_DATA_PRESETS[selectedUnit][selectedSkop]) {
+                kerjaList = UNIT_DATA_PRESETS[selectedUnit][selectedSkop];
+            }
+
+            if (kerjaList.length > 0) {
+                kerjaSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Nama / Deskripsi Kerja (${kerjaList.length} Tugasan) --</option>`;
+                kerjaList.forEach(namaKerja => {
+                    const opt = document.createElement('option');
+                    opt.value = namaKerja;
+                    opt.textContent = namaKerja;
+                    kerjaSelect.appendChild(opt);
+                });
+                showToast(`Auto-load: ${kerjaList.length} tugasan kerja di bawah skop "${selectedSkop}".`, "info");
+            } else {
+                kerjaSelect.innerHTML = `<option value="" disabled selected>-- Tiada senarai kerja khusus bagi skop ini --</option>`;
+            }
+
+            detectAndApplyMeetingMode("", selectedSkop);
+            renderRecordsTable();
+        }
+
+        function handleKerjaChange() {
+            const unit = document.getElementById('unit-select').value;
+            const skop = document.getElementById('skop-select').value;
+            const kerja = document.getElementById('kerja-select').value;
+            const btnSaveText = document.getElementById('btn-save-text');
+
+            if (!unit || !skop || !kerja) return;
+
+            detectAndApplyMeetingMode(kerja, skop);
+
+            const existingRecord = currentSessionRecords.find(item => 
+                item.unit.trim().toLowerCase() === unit.trim().toLowerCase() &&
+                item.skop.trim().toLowerCase() === skop.trim().toLowerCase() &&
+                item.kerja.trim().toLowerCase() === kerja.trim().toLowerCase()
+            );
+
+            const dateStartInput = document.getElementById('date-start');
+            const dateEndInput = document.getElementById('date-end');
+            const tickPaperwork = document.getElementById('tick-paperwork');
+            const tickBroadcast = document.getElementById('tick-broadcast');
+            const tickExecution = document.getElementById('tick-execution');
+            const onedriveUrlInput = document.getElementById('onedrive-url-input');
+
+            if (existingRecord) {
+                if (existingRecord.tarikhMula && existingRecord.tarikhMula !== '-' && existingRecord.tarikhMula !== 'undefined') {
+                    dateStartInput.value = normalizeDateString(existingRecord.tarikhMula);
+                } else {
+                    dateStartInput.value = "";
+                }
+
+                if (existingRecord.tarikhAkhir && existingRecord.tarikhAkhir !== '-' && existingRecord.tarikhAkhir !== 'undefined') {
+                    dateEndInput.value = normalizeDateString(existingRecord.tarikhAkhir);
+                } else {
+                    dateEndInput.value = "";
+                }
+
+                if (onedriveUrlInput) {
+                    onedriveUrlInput.value = (existingRecord.fileUrl && existingRecord.fileUrl !== ONEDRIVE_FOLDER_URL) ? existingRecord.fileUrl : "";
+                }
+
+                calculateDueDate();
+
+                const percentNum = parsePercentageValue(existingRecord.peratus);
+
+                if (isMeetingMode) {
+                    if (existingRecord.meetingCount !== undefined && existingRecord.meetingCount !== null) {
+                        currentMeetingCount = parseInt(existingRecord.meetingCount) || 0;
+                    } else {
+                        currentMeetingCount = Math.min(currentMeetingTarget, Math.round((percentNum / 100) * currentMeetingTarget));
+                    }
+                    updateMeetingUI();
+                } else {
+                    tickPaperwork.checked = false;
+                    tickBroadcast.checked = false;
+                    tickExecution.checked = false;
+
+                    if (percentNum === 100) {
+                        tickPaperwork.checked = true;
+                        tickBroadcast.checked = true;
+                        tickExecution.checked = true;
+                    } else if (percentNum === 80) {
+                        tickPaperwork.checked = true;
+                        tickExecution.checked = true;
+                    } else if (percentNum === 60) {
+                        tickPaperwork.checked = true;
+                        tickBroadcast.checked = true;
+                    } else if (percentNum === 40) {
+                        tickPaperwork.checked = true;
+                    } else if (percentNum === 20) {
+                        tickBroadcast.checked = true;
+                    }
+                }
+
+                calculatePercentage();
+                btnSaveText.innerText = "Kemaskini Rekod Sedia Ada (Cloud)";
+                showToast(`Data sedia ada bagi "${kerja}" telah dimuatkan ke borang.`, "success");
+            } else {
+                btnSaveText.innerText = "Simpan & Hantar ke Cloud Google Sheet";
+                dateStartInput.value = new Date().toISOString().split('T')[0];
+                dateEndInput.value = "";
+                if (onedriveUrlInput) onedriveUrlInput.value = "";
+
+                if (isMeetingMode) {
+                    currentMeetingCount = 0;
+                    updateMeetingUI();
+                } else {
+                    tickPaperwork.checked = false;
+                    tickBroadcast.checked = false;
+                    tickExecution.checked = false;
+                }
+
+                calculateDueDate();
+                calculatePercentage();
+            }
+        }
+
+        function normalizeDateString(dateVal) {
+            if (!dateVal) return "-";
+            let str = String(dateVal).trim();
+
+            if (str.includes('T')) {
+                str = str.split('T')[0];
+            }
+
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                return str;
+            }
+
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+                const parts = str.split('/');
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                return `${year}-${month}-${day}`;
+            }
+
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            return str;
+        }
+
+        function calculateDueDate() {
+            const startVal = document.getElementById('date-start').value;
+            const endVal = document.getElementById('date-end').value;
+            const badge = document.getElementById('due-date-badge');
+
+            if (!startVal || !endVal) {
+                badge.innerText = "Sila pilih tarikh";
+                badge.className = "font-bold text-slate-400";
+                return;
+            }
+
+            const startDate = new Date(startVal);
+            const endDate = new Date(endVal);
+
+            const diffTime = endDate - startDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                badge.innerText = "Ralat: Tarikh tamat sebelum tarikh mula";
+                badge.className = "font-bold text-rose-400";
+            } else if (diffDays === 0) {
+                badge.innerText = "Hari yang sama (Hari ini)";
+                badge.className = "font-bold text-amber-400";
+            } else {
+                badge.innerText = `${diffDays} Hari Tempoh Masa`;
+                badge.className = "font-bold text-blue-400";
+            }
+        }
+
+        function calculatePercentage() {
+            let total = 0;
+
+            if (isMeetingMode) {
+                total = calculateMeetingPercentageVal(currentMeetingCount, currentMeetingTarget);
+            } else {
+                const tick1 = document.getElementById('tick-paperwork')?.checked ? 40 : 0;
+                const tick2 = document.getElementById('tick-broadcast')?.checked ? 20 : 0;
+                const tick3 = document.getElementById('tick-execution')?.checked ? 40 : 0;
+                total = tick1 + tick2 + tick3;
+
+                const percentDisplay = document.getElementById('percentage-display');
+                if (percentDisplay) {
+                    percentDisplay.innerText = `${total}%`;
+                    if (total === 100) {
+                        percentDisplay.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800";
+                    } else if (total > 0) {
+                        percentDisplay.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800";
+                    } else {
+                        percentDisplay.className = "text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700";
+                    }
+                }
+            }
+
+            updateStatusDisplay(total);
+            return total;
+        }
+
+        function updateStatusDisplay(percentage) {
+            const statusContainer = document.getElementById('status-container');
+            const statusText = document.getElementById('status-text');
+            const statusIcon = document.getElementById('status-icon');
+
+            let statusName = "Belum Mula";
+            let colorClass = "bg-slate-950 border-slate-800 text-slate-400";
+            let iconClass = "bg-slate-600";
+
+            if (percentage === 0) {
+                statusName = "Belum Mula";
+                colorClass = "bg-slate-950 border-slate-800 text-slate-400";
+                iconClass = "bg-slate-600";
+            } else if (percentage >= 1 && percentage < 100) {
+                statusName = "Dalam Tindakan";
+                colorClass = "bg-amber-950/40 border-amber-800/80 text-amber-300";
+                iconClass = "bg-amber-500 animate-pulse";
+            } else if (percentage === 100) {
+                statusName = "Selesai";
+                colorClass = "bg-emerald-950/40 border-emerald-800/80 text-emerald-300";
+                iconClass = "bg-emerald-400";
+            }
+
+            statusContainer.className = `flex items-center gap-2.5 p-3 border rounded-xl ${colorClass}`;
+            statusIcon.className = `w-3 h-3 rounded-full ${iconClass}`;
+            statusText.innerText = `${statusName} (${percentage}%)`;
+
+            return statusName;
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const unit = document.getElementById('unit-select').value;
+            const skop = document.getElementById('skop-select').value;
+            const kerja = document.getElementById('kerja-select').value;
+            const tarikhMula = document.getElementById('date-start').value;
+            const tarikhAkhir = document.getElementById('date-end').value;
+
+            if (!unit) {
+                showToast("Sila pilih unit jabatan terlebih dahulu!", "error");
+                return;
+            }
+
+            if (!skop) {
+                showToast("Sila pilih skop kerja daripada senarai!", "error");
+                return;
+            }
+
+            if (!kerja) {
+                showToast("Sila pilih nama/deskripsi kerja!", "error");
+                return;
+            }
+
+            if (new Date(tarikhAkhir) < new Date(tarikhMula)) {
+                showToast("Tarikh tamat mestilah selepas tarikh mula!", "error");
+                return;
+            }
+
+            const peratusVal = calculatePercentage();
+            let statusText = "Belum Mula";
+            if (peratusVal >= 1 && peratusVal < 100) statusText = "Dalam Tindakan";
+            if (peratusVal === 100) statusText = "Selesai";
+
+            const diffDays = Math.ceil((new Date(tarikhAkhir) - new Date(tarikhMula)) / (1000 * 60 * 60 * 24));
+            const tempohDue = `${diffDays} Hari`;
+            const fileUrlInput = document.getElementById('onedrive-url-input')?.value.trim() || '';
+
+            const recordItem = {
+                id: Date.now(),
+                kerja: kerja,
+                unit: unit,
+                skop: skop,
+                tarikhMula: tarikhMula,
+                tarikhAkhir: tarikhAkhir,
+                tempohDue: tempohDue,
+                peratus: `${peratusVal}%`,
+                status: statusText,
+                isMeeting: isMeetingMode,
+                meetingTarget: isMeetingMode ? currentMeetingTarget : null,
+                meetingCount: isMeetingMode ? currentMeetingCount : null,
+                fileName: "Fail OneDrive",
+                fileUrl: fileUrlInput,
+                timestamp: new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            const existingIndex = currentSessionRecords.findIndex(item =>
+                item.unit.trim().toLowerCase() === unit.trim().toLowerCase() &&
+                item.skop.trim().toLowerCase() === skop.trim().toLowerCase() &&
+                item.kerja.trim().toLowerCase() === kerja.trim().toLowerCase()
+            );
+
+            let isUpdate = false;
+            if (existingIndex !== -1) {
+                currentSessionRecords[existingIndex] = recordItem;
+                isUpdate = true;
+                showToast(`Rekod sedia ada "${kerja}" telah dikemaskini.`, "success");
+            } else {
+                currentSessionRecords.unshift(recordItem);
+                showToast(`Rekod baharu berjaya disimpan pada sesi ini!`, "success");
+            }
+
+            saveLocalRecords();
+            renderRecordsTable();
+
+            if (webhookUrl) {
+                await syncToGoogleSheet(recordItem, isUpdate);
+            }
+
+            document.getElementById('btn-save-text').innerText = "Simpan & Hantar ke Cloud Google Sheet";
+            resetWorkForm();
+        }
+
+        function resetWorkForm() {
+            const unitSelect = document.getElementById('unit-select');
+            if (unitSelect) unitSelect.value = "";
+
+            const skopSelect = document.getElementById('skop-select');
+            if (skopSelect) {
+                skopSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Unit Dahulu --</option>`;
+            }
+
+            const kerjaSelect = document.getElementById('kerja-select');
+            if (kerjaSelect) {
+                kerjaSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Skop Kerja Dahulu --</option>`;
+            }
+
+            const dateStart = document.getElementById('date-start');
+            const dateEnd = document.getElementById('date-end');
+            if (dateStart) dateStart.value = "";
+            if (dateEnd) dateEnd.value = "";
+
+            const onedriveInput = document.getElementById('onedrive-url-input');
+            if (onedriveInput) onedriveInput.value = "";
+
+            const dueDateBadge = document.getElementById('due-date-badge');
+            if (dueDateBadge) {
+                dueDateBadge.innerText = "Sila pilih tarikh";
+                dueDateBadge.className = "font-bold text-slate-400";
+            }
+
+            const tick1 = document.getElementById('tick-paperwork');
+            const tick2 = document.getElementById('tick-broadcast');
+            const tick3 = document.getElementById('tick-execution');
+            if (tick1) tick1.checked = false;
+            if (tick2) tick2.checked = false;
+            if (tick3) tick3.checked = false;
+
+            currentMeetingCount = 0;
+            setMeetingMode(false);
+            calculatePercentage();
+            renderRecordsTable(true);
+        }
+
+        function parsePercentageValue(val) {
+            if (val === undefined || val === null || val === '') return 0;
+            const str = String(val).trim();
+            if (str.includes('%')) {
+                const parsed = parseInt(str.replace(/[^0-9]/g, ''), 10);
+                return isNaN(parsed) ? 0 : Math.min(100, Math.max(0, parsed));
+            }
+            const floatNum = parseFloat(str);
+            if (!isNaN(floatNum)) {
+                if (floatNum > 0 && floatNum <= 1) {
+                    return Math.round(floatNum * 100);
+                }
+                return Math.min(100, Math.max(0, Math.round(floatNum)));
+            }
+            return 0;
+        }
+
+        function formatPercentageFixed(val) {
+            return `${parsePercentageValue(val)}%`;
+        }
+
+        function renderRecordsTable(ignoreFilter = false) {
+            const tbody = document.getElementById('session-records-body');
+            const countBadge = document.getElementById('record-count-badge');
+            const filterLabel = document.getElementById('filter-active-label');
+            const btnResetFilter = document.getElementById('btn-reset-table-filter');
+
+            const unitSelect = document.getElementById('unit-select');
+            const skopSelect = document.getElementById('skop-select');
+
+            const selectedUnit = unitSelect ? unitSelect.value : "";
+            const selectedSkop = skopSelect ? skopSelect.value : "";
+
+            let filteredRecords = [...currentSessionRecords];
+
+            if (!ignoreFilter && (selectedUnit || selectedSkop)) {
+                if (btnResetFilter) btnResetFilter.classList.remove('hidden');
+
+                if (selectedUnit && selectedSkop) {
+                    filteredRecords = filteredRecords.filter(item => 
+                        item.unit.trim().toLowerCase() === selectedUnit.trim().toLowerCase() &&
+                        item.skop.trim().toLowerCase() === selectedSkop.trim().toLowerCase()
+                    );
+                    if (filterLabel) filterLabel.innerHTML = `<span class="text-blue-400 font-bold">${escapeHtml(selectedUnit)}</span> &rsaquo; <span class="text-slate-200 font-semibold">${escapeHtml(selectedSkop)}</span>`;
+                } else if (selectedUnit) {
+                    filteredRecords = filteredRecords.filter(item => 
+                        item.unit.trim().toLowerCase() === selectedUnit.trim().toLowerCase()
+                    );
+                    if (filterLabel) filterLabel.innerHTML = `<span class="text-blue-400 font-bold">${escapeHtml(selectedUnit)}</span> (Semua Skop)`;
+                }
+            } else {
+                if (btnResetFilter) btnResetFilter.classList.add('hidden');
+                if (filterLabel) filterLabel.textContent = "Semua Rekod (Tiada Tapisan Unit)";
+            }
+
+            if (searchQuery.trim() !== "") {
+                const q = searchQuery.toLowerCase().trim();
+                filteredRecords = filteredRecords.filter(item => 
+                    item.kerja.toLowerCase().includes(q) ||
+                    item.skop.toLowerCase().includes(q) ||
+                    item.unit.toLowerCase().includes(q) ||
+                    item.status.toLowerCase().includes(q)
+                );
+            }
+
+            countBadge.innerText = `${filteredRecords.length} / ${currentSessionRecords.length} Rekod`;
+
+            if (filteredRecords.length === 0) {
+                let emptyMsg = "Belum ada rekod kerja yang diisi pada sesi ini.";
+                if (searchQuery.trim() !== "") {
+                    emptyMsg = `Tiada rekod sepadan dengan carian: "<b>${escapeHtml(searchQuery)}</b>".`;
+                } else if (selectedUnit && selectedSkop) {
+                    emptyMsg = `Tiada rekod bagi unit <b>${escapeHtml(selectedUnit)}</b> di bawah skop <b>${escapeHtml(selectedSkop)}</b>.`;
+                } else if (selectedUnit) {
+                    emptyMsg = `Tiada rekod bagi unit <b>${escapeHtml(selectedUnit)}</b>. Sila isi borang di sebelah kiri.`;
+                }
+
+                tbody.innerHTML = `
+                    <tr id="empty-row">
+                        <td colspan="6" class="text-center py-12 text-slate-500">
+                            <i class="fa-regular fa-folder-open text-3xl mb-2 block"></i>
+                            ${emptyMsg}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = "";
+            filteredRecords.forEach(item => {
+                let statusBadge = "";
+                if (item.status === "Selesai") {
+                    statusBadge = '<span class="inline-block bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-md leading-tight text-center">Selesai</span>';
+                } else if (item.status === "Dalam Tindakan") {
+                    statusBadge = '<span class="inline-block bg-amber-950/80 border border-amber-800 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-md leading-tight text-center">Tindakan</span>';
+                } else {
+                    statusBadge = '<span class="inline-block bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-md leading-tight text-center">Belum Mula</span>';
+                }
+
+                const fixedPercentage = formatPercentageFixed(item.peratus);
+
+                const cleanTarikhMula = normalizeDateString(item.tarikhMula);
+                const cleanTarikhAkhir = normalizeDateString(item.tarikhAkhir);
+
+                let meetingSubBadge = "";
+                const isItemMeet = item.isMeeting || checkIsMeetingText(`${item.kerja} ${item.skop}`);
+                if (isItemMeet) {
+                    const isJkkitm = isJkkitmMeeting(`${item.kerja} ${item.skop}`);
+                    const target = item.meetingTarget || (isJkkitm ? 4 : 7);
+                    const count = item.meetingCount !== null && item.meetingCount !== undefined 
+                        ? item.meetingCount 
+                        : Math.min(target, Math.round((parsePercentageValue(item.peratus) / 100) * target));
+
+                    meetingSubBadge = `<span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/70 font-semibold ml-1.5"><i class="fa-solid fa-users text-[8px]"></i> ${count}/${target} ${isJkkitm ? 'JKKITM' : 'Mesyuarat'}</span>`;
+                }
+
+                // Semakan pautan fail: Hanya papar 'View Fail' sekiranya wujud pautan spesifik yang sah
+                const hasSpecificFile = item.fileUrl && 
+                                       item.fileUrl.trim() !== "" && 
+                                       item.fileUrl.trim() !== ONEDRIVE_FOLDER_URL;
+
+                const fileLinkBadge = hasSpecificFile ? `
+                    <a href="${escapeHtml(item.fileUrl.trim())}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 bg-sky-950 hover:bg-sky-900 border border-sky-800 text-sky-300 text-[10px] px-2 py-0.5 rounded font-medium transition shadow-xs" title="Buka Fail OneDrive">
+                        <i class="fa-solid fa-eye text-sky-400"></i> View Fail
+                    </a>
+                ` : '<span class="text-slate-600 font-mono text-center block text-xs">-</span>';
+
+                html += `
+                    <tr class="hover:bg-slate-800/40 transition border-b border-slate-800/70 align-top">
+                        <td class="py-2.5 px-3.5 break-words">
+                            <div class="font-semibold text-slate-100 leading-snug flex items-center flex-wrap">
+                                <span>${escapeHtml(item.kerja)}</span>
+                                ${meetingSubBadge}
+                            </div>
+                            <div class="text-[11px] text-slate-400 mt-0.5 leading-tight">${escapeHtml(item.unit)} &bull; <span class="text-slate-500">${escapeHtml(item.skop)}</span></div>
+                        </td>
+                        <td class="py-2.5 px-2 text-[11px] text-slate-300">
+                            <div class="flex items-center gap-1 font-mono text-[10.5px]">
+                                <span class="text-slate-500 text-[9px] uppercase font-sans">M:</span> ${cleanTarikhMula}
+                            </div>
+                            <div class="flex items-center gap-1 font-mono text-[10.5px] mt-0.5">
+                                <span class="text-slate-500 text-[9px] uppercase font-sans">T:</span> ${cleanTarikhAkhir}
+                            </div>
+                        </td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">
+                            <span class="inline-block font-semibold bg-slate-950 border border-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10.5px] leading-tight">
+                                ${item.tempohDue}
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-2 text-center font-bold text-slate-200 text-xs font-mono">
+                            ${fixedPercentage}
+                        </td>
+                        <td class="py-2.5 px-3 text-center">
+                            ${statusBadge}
+                        </td>
+                        <td class="py-2.5 px-2 text-right">
+                            ${fileLinkBadge}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function handleSearchInput(e) {
+            searchQuery = e.target.value;
+            renderRecordsTable(true);
+        }
+
+        function resetTableFilter() {
+            searchQuery = "";
+            const searchInput = document.getElementById('table-search-input');
+            if (searchInput) searchInput.value = "";
+            renderRecordsTable(true);
+            showToast("Memaparkan semua rekod tanpa tapisan.", "info");
+        }
+
+        async function syncToGoogleSheet(record, isUpdate = false) {
+            const btnSave = document.getElementById('btn-save');
+            const originalText = btnSave.innerHTML;
+            btnSave.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${isUpdate ? 'Mengemaskini di Google Sheet...' : 'Menghantar ke Google Sheet...'}</span>`;
+            btnSave.disabled = true;
+
+            try {
+                const payload = {
+                    action: "upsertWork",
+                    data: {
+                        namaKerja: record.kerja,
+                        unit: record.unit,
+                        skopKerja: record.skop,
+                        tarikhMula: record.tarikhMula,
+                        tarikhAkhir: record.tarikhAkhir,
+                        peratus: record.peratus,
+                        status: record.status,
+                        isMeeting: record.isMeeting || false,
+                        meetingCount: record.meetingCount !== null ? record.meetingCount : '',
+                        fileUrl: record.fileUrl || ''
+                    }
+                };
+
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+
+                showToast(isUpdate ? "Berjaya! Rekod Google Sheet dikemaskini." : "Berjaya! Rekod baharu ditambah ke Google Sheet.", "success");
+            } catch (error) {
+                console.error("Ralat simpan ke cloud:", error);
+                showToast("Ralat menghubungi Google Sheet. Semak sambungan internet.", "error");
+            } finally {
+                btnSave.innerHTML = originalText;
+                btnSave.disabled = false;
+            }
+        }
+
+        async function fetchSheetData() {
+            if (!webhookUrl) {
+                showToast("URL Webhook tidak sah!", "error");
+                return;
+            }
+
+            const btnSync = document.getElementById('btn-sync-live');
+            const syncIcon = document.getElementById('sync-icon');
+            const syncText = document.getElementById('sync-text');
+
+            if (syncIcon) syncIcon.classList.add('fa-spin');
+            if (syncText) syncText.textContent = "Refreshing...";
+            if (btnSync) btnSync.disabled = true;
+
+            showToast("Menarik data secara live...", "info");
+
+            try {
+                const cacheBuster = `t=${Date.now()}`;
+                const fetchUrl = `${webhookUrl}${webhookUrl.includes('?') ? '&' : '?'}action=getWorks&${cacheBuster}`;
+
+                const res = await fetch(fetchUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    redirect: 'follow',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP Error: ${res.status}`);
+                }
+
+                const result = await res.json();
+                processFetchedData(result);
+            } catch (fetchErr) {
+                console.warn("Fetch standard disekat (CORS/file://), beralih ke mod suntikan JSONP...", fetchErr);
+                try {
+                    await fetchViaJsonp();
+                } catch (jsonpErr) {
+                    console.error("Kedua-dua fetch & JSONP gagal:", jsonpErr);
+                    showToast("Gagal menarik data dari Google Sheet. Semak status deploy Web App.", "error");
+                }
+            } finally {
+                if (syncIcon) syncIcon.classList.remove('fa-spin');
+                if (syncText) syncText.textContent = "Sync Live";
+                if (btnSync) btnSync.disabled = false;
+            }
+        }
+
+        function fetchViaJsonp() {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'googleSheetCallback_' + Date.now();
+                const timeoutId = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Masa tamat sambungan Google Sheet (Timeout)."));
+                }, 12000);
+
+                function cleanup() {
+                    if (window[callbackName]) delete window[callbackName];
+                    const scriptTag = document.getElementById(callbackName);
+                    if (scriptTag && scriptTag.parentNode) scriptTag.parentNode.removeChild(scriptTag);
+                    clearTimeout(timeoutId);
+                }
+
+                window[callbackName] = function(data) {
+                    cleanup();
+                    processFetchedData(data);
+                    resolve(data);
+                };
+
+                const script = document.createElement('script');
+                script.id = callbackName;
+                script.src = `${webhookUrl}${webhookUrl.includes('?') ? '&' : '?'}action=getWorks&callback=${callbackName}&t=${Date.now()}`;
+                script.onerror = function() {
+                    cleanup();
+                    reject(new Error("Ralat sambungan skrip JSONP."));
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        function processFetchedData(result) {
+            if (result && result.status === 'success' && Array.isArray(result.data)) {
+                // Ambil rekod lama daripada localStorage untuk dijadikan rujukan pautan fail sekiranya Google Sheet belum kemaskini kolum fileUrl
+                let localRecordsMap = {};
+                try {
+                    const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+                    if (localData) {
+                        const parsed = JSON.parse(localData);
+                        parsed.forEach(item => {
+                            const key = `${(item.unit||'').trim().toLowerCase()}_${(item.skop||'').trim().toLowerCase()}_${(item.kerja||'').trim().toLowerCase()}`;
+                            if (item.fileUrl) localRecordsMap[key] = item.fileUrl;
+                        });
+                    }
+                } catch(e) { console.warn("Ralat membaca cache tempatan:", e); }
+
+                currentSessionRecords = result.data.map((row, idx) => {
+                    const nama = row.namaKerja || row[0] || 'Tugasan';
+                    const unitName = row.unit || row[1] || 'Unit Pentadbiran & Sumber Manusia';
+                    const skop = row.skopKerja || row[2] || 'Skop Am';
+                    const tarikhMulaRaw = row.tarikhMula || row[3] || '-';
+                    const tarikhAkhirRaw = row.tarikhAkhir || row[4] || '-';
+                    const peratusRaw = row.peratus !== undefined && row.peratus !== null ? row.peratus : (row[5] !== undefined ? row[5] : '0%');
+                    
+                    const percentNum = parsePercentageValue(peratusRaw);
+                    const peratusFormatted = `${percentNum}%`;
+
+                    const combined = `${nama} ${skop}`;
+                    const isMeet = checkIsMeetingText(combined);
+                    const isJkkitm = isJkkitmMeeting(combined);
+                    const targetCount = isJkkitm ? 4 : 7;
+                    const countMeet = isMeet ? Math.min(targetCount, Math.round((percentNum / 100) * targetCount)) : null;
+
+                    // Semak pautan fail dari Google Sheet ATAU gunakan rujukan simpanan tempatan
+                    const key = `${unitName.trim().toLowerCase()}_${skop.trim().toLowerCase()}_${nama.trim().toLowerCase()}`;
+                    const fetchedFileUrl = row.fileUrl || row.file_url || row[7] || localRecordsMap[key] || '';
+
+                    // Kira tempoh hari secara automatik dari tarikh mula & tarikh akhir
+                    let calculatedTempoh = calculateTempohDays(tarikhMulaRaw, tarikhAkhirRaw);
+
+                    return {
+                        id: Date.now() + idx,
+                        kerja: nama,
+                        unit: unitName,
+                        skop: skop,
+                        tarikhMula: tarikhMulaRaw,
+                        tarikhAkhir: tarikhAkhirRaw,
+                        tempohDue: calculatedTempoh,
+                        peratus: peratusFormatted,
+                        status: row.status || row[6] || (percentNum === 100 ? 'Selesai' : (percentNum > 0 ? 'Dalam Tindakan' : 'Belum Mula')),
+                        isMeeting: isMeet,
+                        meetingTarget: isMeet ? targetCount : null,
+                        meetingCount: countMeet,
+                        fileName: "Fail OneDrive",
+                        fileUrl: fetchedFileUrl,
+                        timestamp: 'Awan'
+                    };
+                });
+
+                saveLocalRecords();
+                renderRecordsTable();
+
+                cloudUnitMapping = {};
+                result.data.forEach(row => {
+                    const namaKerja = String(row.namaKerja || row[0] || '').trim();
+                    const unit = String(row.unit || row[1] || '').trim();
+                    const skop = String(row.skopKerja || row[2] || 'Skop Am').trim();
+
+                    if (unit) {
+                        if (!cloudUnitMapping[unit]) cloudUnitMapping[unit] = {};
+                        if (!cloudUnitMapping[unit][skop]) cloudUnitMapping[unit][skop] = new Set();
+                        if (namaKerja) cloudUnitMapping[unit][skop].add(namaKerja);
+                    }
+                });
+
+                Object.keys(cloudUnitMapping).forEach(unit => {
+                    Object.keys(cloudUnitMapping[unit]).forEach(skop => {
+                        cloudUnitMapping[unit][skop] = Array.from(cloudUnitMapping[unit][skop]);
+                    });
+                });
+
+                const sheetUnits = Object.keys(cloudUnitMapping);
+                if (sheetUnits.length > 0) {
+                    const unitSelect = document.getElementById('unit-select');
+                    unitSelect.innerHTML = `<option value="" disabled selected>-- Sila Pilih Unit --</option>`;
+                    sheetUnits.forEach(unitName => {
+                        const opt = document.createElement('option');
+                        opt.value = unitName;
+                        opt.textContent = unitName;
+                        unitSelect.appendChild(opt);
+                    });
+
+                    const badge = document.getElementById('unit-source-badge');
+                    if (badge) {
+                        badge.textContent = `Langkah 1 (${sheetUnits.length} Pilihan)`;
+                        badge.className = "text-[11px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2.5 py-0.5 rounded-full font-medium";
+                    }
+                }
+
+                showToast(`Kemaskini selesai! ${currentSessionRecords.length} data diterima.`, "success");
+            } else {
+                showToast("Format respons Google Sheet kosong atau tidak padan.", "error");
+            }
+        }
+
+        function normalizeDateString(dateVal) {
+            if (!dateVal) return "-";
+            let str = String(dateVal).trim();
+
+            if (str.includes('T')) {
+                str = str.split('T')[0];
+            }
+
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                return str;
+            }
+
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+                const parts = str.split('/');
+                const day = parts[0].padStart(2, '0');
+                const month = parts[1].padStart(2, '0');
+                const year = parts[2];
+                return `${year}-${month}-${day}`;
+            }
+
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            return str;
+        }
+
+        // Fungsi khas pengiraan baki tempoh hari antara tarikh mula & tamat
+        function calculateTempohDays(startVal, endVal) {
+            const cleanStart = normalizeDateString(startVal);
+            const cleanEnd = normalizeDateString(endVal);
+
+            if (!cleanStart || !cleanEnd || cleanStart === '-' || cleanEnd === '-') {
+                return "-";
+            }
+
+            const startDate = new Date(cleanStart);
+            const endDate = new Date(cleanEnd);
+
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                return "-";
+            }
+
+            const diffTime = endDate - startDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                return "Ralat Tarikh";
+            } else if (diffDays === 0) {
+                return "1 Hari";
+            } else {
+                return `${diffDays} Hari`;
+            }
+        }
+
+        function calculateDueDate() {
+            const startVal = document.getElementById('date-start').value;
+            const endVal = document.getElementById('date-end').value;
+            const badge = document.getElementById('due-date-badge');
+
+            if (!startVal || !endVal) {
+                badge.innerText = "Sila pilih tarikh";
+                badge.className = "font-bold text-slate-400";
+                return;
+            }
+
+            const tempohText = calculateTempohDays(startVal, endVal);
+
+            if (tempohText === "Ralat Tarikh") {
+                badge.innerText = "Ralat: Tarikh tamat sebelum tarikh mula";
+                badge.className = "font-bold text-rose-400";
+            } else if (tempohText === "1 Hari") {
+                badge.innerText = "Hari yang sama (1 Hari)";
+                badge.className = "font-bold text-amber-400";
+            } else {
+                badge.innerText = `${tempohText} Tempoh Masa`;
+                badge.className = "font-bold text-blue-400";
+            }
+        }
+
+        function exportToCsv() {
+            if (currentSessionRecords.length === 0) {
+                showToast("Tiada rekod untuk dieksport!", "error");
+                return;
+            }
+
+            const headers = ["Nama Kerja", "Unit", "Skop Kerja", "Tarikh Mula", "Tarikh Tamat", "Tempoh", "Kemajuan", "Status"];
+            const rows = currentSessionRecords.map(r => [
+                `"${(r.kerja || '').replace(/"/g, '""')}"`,
+                `"${(r.unit || '').replace(/"/g, '""')}"`,
+                `"${(r.skop || '').replace(/"/g, '""')}"`,
+                `"${r.tarikhMula || '-'}"`,
+                `"${r.tarikhAkhir || '-'}"`,
+                `"${r.tempohDue || '-'}"`,
+                `"${r.peratus || '0%'}"`,
+                `"${r.status || '-'}"`
+            ]);
+
+            const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\r\n");
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', `Status_Kerja_Jabatan_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast("Fail CSV berjaya dimuat turun!", "success");
+        }
+
+        function escapeHtml(string) {
+            const div = document.createElement('div');
+            div.innerText = string;
+            return div.innerHTML;
+        }
+
+        function autoSyncInitial() {
+            if (navigator.onLine && webhookUrl) {
+                fetchSheetData();
+            }
+        }
+
+        // Daftarkan fungsi ke skop global window
+        window.sha256 = sha256;
+        window.setMeetingCount = setMeetingCount;
+        window.adjustMeetingCount = adjustMeetingCount;
+        window.toggleProgressModeManual = toggleProgressModeManual;
+        window.setMeetingMode = setMeetingMode;
+        window.handleAuthSubmit = handleAuthSubmit;
+        window.togglePasswordVisibility = togglePasswordVisibility;
+        window.handleLogout = handleLogout;
+        window.handleLoadUnitData = handleLoadUnitData;
+        window.handleSkopChange = handleSkopChange;
+        window.handleKerjaChange = handleKerjaChange;
+        window.calculateDueDate = calculateDueDate;
+        window.calculatePercentage = calculatePercentage;
+        window.handleFormSubmit = handleFormSubmit;
+        window.renderRecordsTable = renderRecordsTable;
+        window.handleSearchInput = handleSearchInput;
+        window.resetTableFilter = resetTableFilter;
+        window.fetchSheetData = fetchSheetData;
+        window.exportToCsv = exportToCsv;
+        window.openOneDriveFolder = openOneDriveFolder;
+        window.addEventListener('DOMContentLoaded', () => {
+            initAuth();
+            loadLocalRecords();
+            renderRecordsTable();
+            autoSyncInitial();
+        });
+    </script>
+</body>
+</html>
